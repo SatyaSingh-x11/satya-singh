@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SatyaOS — Satya Singh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #050505;
+    --accent: #007AFF;
+    --accent-dim: rgba(0,122,255,0.15);
+    --border: #222;
+    --text: #e8e8e8;
+    --muted: #666;
+    --green: #00FF88;
+    --red: #FF3B30;
+    --yellow: #FFD60A;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* VOXEL GRID BACKGROUND */
+  .voxel-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0,122,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,122,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridPulse 8s ease-in-out infinite;
+  }
+  @keyframes gridPulse {
+    0%,100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  /* CRT SCANLINES */
+  .crt-overlay {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    animation: crtFlicker 0.15s infinite linear;
+  }
+  @keyframes crtFlicker {
+    0% { opacity: 0.97; }
+    50% { opacity: 1; }
+    100% { opacity: 0.98; }
+  }
+
+  /* NOISE OVERLAY */
+  .noise-overlay {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none; opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 150px 150px;
+  }
+
+  /* MAIN CONTENT */
+  #app { position: relative; z-index: 10; }
+
+  /* NAVBAR */
+  #navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(5,5,5,0.85);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s;
+    transform: translateY(0);
+  }
+  #navbar.hidden { transform: translateY(-100%); }
+  .nav-inner {
+    max-width: 1400px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem; height: 60px;
+  }
+  .nav-logo {
+    font-family: var(--font-head);
+    font-weight: 800; font-size: 1.1rem;
+    color: var(--accent); letter-spacing: -0.02em;
+    cursor: pointer;
+  }
+  .nav-logo span { color: var(--text); }
+  .nav-links { display: flex; gap: 0; }
+  .nav-link {
+    font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500;
+    color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.5rem 1rem; cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .nav-link:hover, .nav-link.active {
+    color: var(--accent);
+    border: 1px solid var(--border);
+    background: var(--accent-dim);
+  }
+  .nav-cmd {
+    font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);
+    border: 1px solid var(--border); padding: 0.25rem 0.6rem; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-cmd:hover { color: var(--accent); border-color: var(--accent); }
+  .nav-hamburger {
+    display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 5px;
+  }
+  .nav-hamburger span { display: block; width: 22px; height: 1px; background: var(--text); transition: all 0.3s; }
+
+  /* SECTIONS */
+  .section { min-height: 100vh; padding: 90px 2rem 4rem; display: none; }
+  .section.active { display: block; animation: fadeSection 0.4s ease; }
+  @keyframes fadeSection {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .container { max-width: 1300px; margin: 0 auto; }
+
+  /* TYPOGRAPHY */
+  h1, h2, h3, h4 { font-family: var(--font-head); }
+  .mono { font-family: var(--font-mono); }
+
+  /* ACCENT LINE */
+  .accent-line {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: var(--font-mono); font-size: 0.65rem;
+    color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .accent-line::before {
+    content: ''; display: block; width: 20px; height: 1px; background: var(--accent);
+  }
+
+  /* TERMINAL */
+  .terminal {
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.7);
+    font-family: var(--font-mono);
+  }
+  .terminal-header {
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: var(--red); }
+  .dot-y { background: var(--yellow); }
+  .dot-g { background: var(--green); }
+  .terminal-body { padding: 1.2rem; font-size: 0.78rem; line-height: 1.8; }
+  .t-line { display: flex; gap: 0.5rem; }
+  .t-prompt { color: var(--accent); }
+  .t-value { color: var(--green); }
+  .t-muted { color: var(--muted); }
+  .cursor-blink {
+    display: inline-block; width: 8px; height: 14px;
+    background: var(--accent); vertical-align: middle;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* HERO */
+  .hero-title {
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: clamp(2.8rem, 8vw, 7.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .hero-title .accent-word { color: var(--accent); }
+
+  /* MAGNETIC BUTTON */
+  .magnetic-btn {
+    position: relative; display: inline-flex; align-items: center; gap: 0.75rem;
+    font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--bg); background: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 1rem 2.5rem; cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none; overflow: hidden;
+  }
+  .magnetic-btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(255,255,255,0.1);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .magnetic-btn:hover::before { transform: translateX(0); }
+  .magnetic-btn:hover { transform: scale(1.02); box-shadow: 0 0 40px rgba(0,122,255,0.4); }
+  .magnetic-btn:active { transform: scale(0.98); }
+
+  /* SECONDARY BUTTON */
+  .ghost-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: var(--font-mono); font-size: 0.75rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text); border: 1px solid var(--border);
+    padding: 0.75rem 1.5rem; cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    user-select: none;
+  }
+  .ghost-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+  /* POWER MODULES */
+  .module-card {
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    transition: all 0.25s;
+    position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.01);
+  }
+  .module-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: transparent; transition: background 0.3s;
+  }
+  .module-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+  .module-card:hover::before { background: var(--accent); }
+  .module-icon { font-size: 1.4rem; margin-bottom: 0.75rem; }
+  .module-name {
+    font-family: var(--font-head); font-weight: 700; font-size: 0.9rem;
+    margin-bottom: 0.3rem; color: var(--text);
+  }
+  .module-level {
+    font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .module-bar {
+    margin-top: 0.75rem; height: 2px; background: var(--border);
+    position: relative; overflow: visible;
+  }
+  .module-bar-fill {
+    height: 100%; background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+  }
+  .category-label {
+    font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--accent);
+    border: 1px solid var(--accent); display: inline-block;
+    padding: 0.2rem 0.6rem; margin-bottom: 1.25rem;
+  }
+
+  /* PROJECT CARDS */
+  .project-card {
+    border: 1px solid var(--border);
+    padding: 1.75rem;
+    transition: all 0.25s;
+    position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.01);
+    cursor: pointer;
+  }
+  .project-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .project-card:hover .project-glow { opacity: 1; }
+  .project-glow {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+    background: linear-gradient(to top, rgba(0,122,255,0.08), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 0.25rem 0.6rem; border: 1px solid;
+  }
+  .status-live { color: var(--green); border-color: var(--green); background: rgba(0,255,136,0.08); }
+  .status-deploy { color: var(--yellow); border-color: var(--yellow); background: rgba(255,214,10,0.08); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; animation: pulse-dot 1.5s infinite; }
+  .status-dot-live { background: var(--green); }
+  .status-dot-deploy { background: var(--yellow); }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .project-title {
+    font-family: var(--font-head); font-weight: 800; font-size: 1.6rem;
+    margin: 0.75rem 0 0.5rem; letter-spacing: -0.02em;
+  }
+  .project-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.7; }
+  .project-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
+  .tag {
+    font-size: 0.62rem; letter-spacing: 0.08em;
+    color: var(--muted); border: 1px solid var(--border);
+    padding: 0.2rem 0.5rem;
+  }
+  .search-input {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-mono); font-size: 0.8rem;
+    padding: 0.85rem 1.2rem; outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* BLOG CARDS */
+  .blog-card {
+    border: 1px solid var(--border);
+    padding: 1.75rem;
+    transition: all 0.25s;
+    position: relative;
+    background: rgba(255,255,255,0.01);
+    cursor: pointer;
+  }
+  .blog-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+  .blog-meta { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .blog-tag {
+    font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--accent);
+    padding: 0.15rem 0.5rem;
+  }
+  .blog-read-time { font-size: 0.65rem; color: var(--muted); }
+  .impact-score {
+    font-size: 0.65rem; color: var(--green);
+    border: 1px solid rgba(0,255,136,0.3); padding: 0.15rem 0.5rem;
+  }
+  .blog-title {
+    font-family: var(--font-head); font-weight: 700; font-size: 1.2rem;
+    margin: 0.75rem 0 0.5rem; letter-spacing: -0.01em; line-height: 1.3;
+  }
+  .blog-excerpt { font-size: 0.76rem; color: var(--muted); line-height: 1.7; }
+  .blog-cta {
+    margin-top: 1rem; font-size: 0.65rem; color: var(--accent);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    transition: gap 0.2s;
+  }
+  .blog-card:hover .blog-cta { gap: 0.6rem; }
+
+  /* PRICING */
+  .pricing-card {
+    border: 1px solid var(--border);
+    padding: 2rem; position: relative; overflow: hidden;
+    transition: all 0.3s;
+    background: rgba(255,255,255,0.01);
+  }
+  .pricing-card:hover { border-color: var(--accent); }
+  .pricing-card.featured {
+    border-color: var(--accent);
+    background: rgba(0,122,255,0.06);
+  }
+  .pricing-card.featured::before {
+    content: 'RECOMMENDED'; position: absolute; top: 0; right: 0;
+    font-size: 0.55rem; letter-spacing: 0.15em;
+    background: var(--accent); color: var(--bg);
+    padding: 0.3rem 0.8rem;
+    font-family: var(--font-mono); font-weight: 700;
+  }
+  .tier-name {
+    font-family: var(--font-head); font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .price-tag {
+    font-family: var(--font-head); font-weight: 800;
+    font-size: 3rem; letter-spacing: -0.03em; color: var(--text);
+    line-height: 1;
+  }
+  .price-tag sup { font-size: 1.2rem; vertical-align: super; }
+  .price-period { font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem; }
+  .price-roi {
+    margin: 1rem 0; padding: 0.75rem;
+    background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.2);
+    font-size: 0.72rem; color: var(--green); line-height: 1.5;
+  }
+  .price-divider { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+  .feature-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+  .feature-item { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.75rem; color: var(--muted); }
+  .feature-item::before { content: '→'; color: var(--accent); flex-shrink: 0; }
+
+  /* FORM */
+  .form-input, .form-textarea, .form-select {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-mono); font-size: 0.8rem;
+    padding: 0.85rem 1rem; outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
+  .form-input::placeholder, .form-textarea::placeholder { color: var(--muted); }
+  .form-label {
+    display: block; font-size: 0.65rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem;
+  }
+  .form-error { font-size: 0.65rem; color: var(--red); margin-top: 0.3rem; }
+  .form-step-indicator {
+    display: flex; gap: 0; margin-bottom: 2.5rem;
+  }
+  .step-dot {
+    flex: 1; height: 2px; background: var(--border);
+    transition: background 0.3s;
+  }
+  .step-dot.active { background: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 100px; }
+  .form-select option { background: #0a0a0a; }
+
+  /* ROI ENGINE */
+  .roi-display {
+    border: 1px solid var(--border);
+    padding: 1.75rem; background: rgba(0,0,0,0.5);
+  }
+  .roi-number {
+    font-family: var(--font-head); font-weight: 800;
+    font-size: 2.5rem; color: var(--green); letter-spacing: -0.03em;
+  }
+  .roi-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0.25rem; }
+  .roi-slider {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 2px; background: var(--border); outline: none; margin: 1rem 0;
+  }
+  .roi-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent); cursor: pointer;
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  /* COMMAND PALETTE */
+  #cmd-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    display: none; align-items: flex-start; justify-content: center;
+    padding-top: 15vh;
+  }
+  #cmd-overlay.open { display: flex; }
+  #cmd-palette {
+    width: 100%; max-width: 560px;
+    border: 1px solid var(--border);
+    background: rgba(10,10,10,0.98);
+    margin: 0 1rem;
+    animation: slideDown 0.2s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .cmd-header {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.9rem 1.2rem; border-bottom: 1px solid var(--border);
+  }
+  .cmd-icon { color: var(--accent); font-size: 0.8rem; }
+  .cmd-search {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--font-mono); font-size: 0.85rem;
+  }
+  .cmd-esc {
+    font-size: 0.6rem; color: var(--muted); border: 1px solid var(--border);
+    padding: 0.15rem 0.4rem;
+  }
+  .cmd-results { padding: 0.5rem 0; max-height: 300px; overflow-y: auto; }
+  .cmd-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1.2rem; cursor: pointer;
+    font-size: 0.8rem; transition: all 0.15s;
+  }
+  .cmd-item:hover, .cmd-item.focused {
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .cmd-item-icon { font-size: 0.7rem; width: 20px; text-align: center; color: var(--muted); }
+  .cmd-item:hover .cmd-item-icon { color: var(--accent); }
+  .cmd-item-shortcut { margin-left: auto; font-size: 0.6rem; color: var(--muted); }
+  .cmd-footer {
+    border-top: 1px solid var(--border); padding: 0.5rem 1.2rem;
+    display: flex; gap: 1.5rem; align-items: center;
+  }
+  .cmd-hint { font-size: 0.6rem; color: var(--muted); display: flex; align-items: center; gap: 0.3rem; }
+  .cmd-key { border: 1px solid var(--border); padding: 0.1rem 0.35rem; font-size: 0.55rem; }
+
+  /* STAT BOX */
+  .stat-box {
+    border: 1px solid var(--border); padding: 1.25rem;
+    display: flex; flex-direction: column; gap: 0.25rem;
+    transition: all 0.2s;
+  }
+  .stat-box:hover { border-color: var(--accent); }
+  .stat-value {
+    font-family: var(--font-head); font-weight: 800; font-size: 2rem;
+    letter-spacing: -0.02em; color: var(--text);
+  }
+  .stat-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .stat-delta { font-size: 0.7rem; color: var(--green); }
+
+  /* UPLINK STATUS */
+  .uplink-status {
+    border: 1px solid var(--border); padding: 1.5rem;
+    text-align: center; display: none;
+  }
+  .uplink-status.visible { display: block; }
+
+  /* DIVIDER */
+  .section-divider {
+    border: none; border-top: 1px solid var(--border);
+    margin: 3rem 0;
+  }
+
+  /* UTILITY */
+  .text-accent { color: var(--accent); }
+  .text-green { color: var(--green); }
+  .text-muted { color: var(--muted); }
+  .text-mono { font-family: var(--font-mono); }
+  .text-head { font-family: var(--font-head); }
+
+  /* GRID HELPERS */
+  .bento-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
+  .bento-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; }
+  .bento-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; }
+
+  /* MOBILE NAV */
+  #mobile-menu {
+    display: none; background: rgba(5,5,5,0.98);
+    border-top: 1px solid var(--border);
+    padding: 1rem;
+    flex-direction: column; gap: 0;
+  }
+  #mobile-menu.open { display: flex; }
+  .mobile-nav-link {
+    font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: color 0.2s;
+  }
+  .mobile-nav-link:hover { color: var(--accent); }
+
+  /* GLITCH TEXT */
+  .glitch {
+    position: relative;
+  }
+  .glitch::before, .glitch::after {
+    content: attr(data-text);
+    position: absolute; left: 0; top: 0;
+    color: var(--text);
+  }
+  .glitch::before {
+    animation: glitch1 4s infinite;
+    clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+    transform: translate(-2px);
+    opacity: 0;
+  }
+  .glitch::after {
+    animation: glitch2 4s infinite 0.5s;
+    clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+    transform: translate(2px);
+    opacity: 0;
+  }
+  @keyframes glitch1 {
+    0%, 92%, 100% { opacity: 0; transform: translate(0); }
+    93% { opacity: 0.7; transform: translate(-3px, 1px); color: var(--accent); }
+    95% { opacity: 0.7; transform: translate(3px, -1px); color: var(--green); }
+    97% { opacity: 0; }
+  }
+  @keyframes glitch2 {
+    0%, 92%, 100% { opacity: 0; transform: translate(0); }
+    93% { opacity: 0.7; transform: translate(3px, 1px); color: var(--red); }
+    95% { opacity: 0.7; transform: translate(-3px, -1px); color: var(--accent); }
+    97% { opacity: 0; }
+  }
+
+  /* SCANLINE SWEEP */
+  .scan-sweep {
+    position: absolute; width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4; animation: sweep 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes sweep { 0% { top: 0%; } 100% { top: 100%; } }
+
+  /* RESPONSIVE */
+  @media (max-width: 1024px) {
+    .bento-3 { grid-template-columns: repeat(2, 1fr); }
+    .bento-4 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .bento-3, .bento-2, .bento-4 { grid-template-columns: 1fr; }
+    .hero-title { font-size: clamp(2.5rem, 12vw, 4rem); }
+    .nav-links { display: none; }
+    .nav-cmd { display: none; }
+    .nav-hamburger { display: flex; }
+    .section { padding: 80px 1rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND LAYERS -->
+<div class="voxel-grid"></div>
+<div class="crt-overlay"></div>
+<div class="noise-overlay"></div>
+
+<!-- COMMAND PALETTE -->
+<div id="cmd-overlay" role="dialog" aria-label="Command Palette">
+  <div id="cmd-palette">
+    <div class="cmd-header">
+      <span class="cmd-icon">⌘</span>
+      <input class="cmd-search" id="cmd-input" placeholder="Navigate to..." autocomplete="off" spellcheck="false"/>
+      <span class="cmd-esc">ESC</span>
+    </div>
+    <div class="cmd-results" id="cmd-results"></div>
+    <div class="cmd-footer">
+      <span class="cmd-hint"><span class="cmd-key">↑↓</span> navigate</span>
+      <span class="cmd-hint"><span class="cmd-key">↵</span> select</span>
+      <span class="cmd-hint"><span class="cmd-key">ESC</span> close</span>
+    </div>
+  </div>
+</div>
+
+<!-- NAVBAR -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <div class="nav-logo" onclick="GlobalState.navigate('home')">Satya<span>OS</span></div>
+    <div class="nav-links">
+      <div class="nav-link" data-view="home" onclick="GlobalState.navigate('home')">Home</div>
+      <div class="nav-link" data-view="arsenal" onclick="GlobalState.navigate('arsenal')">Arsenal</div>
+      <div class="nav-link" data-view="systems" onclick="GlobalState.navigate('systems')">Systems</div>
+      <div class="nav-link" data-view="intelligence" onclick="GlobalState.navigate('intelligence')">Intelligence</div>
+      <div class="nav-link" data-view="investment" onclick="GlobalState.navigate('investment')">Investment</div>
+      <div class="nav-link" data-view="intake" onclick="GlobalState.navigate('intake')">Intake</div>
+    </div>
+    <button class="nav-cmd" onclick="GlobalState.openCmd()" title="CMD+K">⌘K</button>
+    <div class="nav-hamburger" id="hamburger" onclick="toggleMobileMenu()">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+  <div id="mobile-menu">
+    <div class="mobile-nav-link" onclick="GlobalState.navigate('home'); closeMobileMenu()">/ Home</div>
+    <div class="mobile-nav-link" onclick="GlobalState.navigate('arsenal'); closeMobileMenu()">/ Arsenal</div>
+    <div class="mobile-nav-link" onclick="GlobalState.navigate('systems'); closeMobileMenu()">/ Systems</div>
+    <div class="mobile-nav-link" onclick="GlobalState.navigate('intelligence'); closeMobileMenu()">/ Intelligence</div>
+    <div class="mobile-nav-link" onclick="GlobalState.navigate('investment'); closeMobileMenu()">/ Investment</div>
+    <div class="mobile-nav-link" onclick="GlobalState.navigate('intake'); closeMobileMenu()">/ Intake</div>
+  </div>
+</nav>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- ================================ HOME ================================ -->
+  <section class="section active" id="view-home">
+    <div class="container">
+      <!-- Hero Block -->
+      <div style="padding-top:2rem; margin-bottom: 4rem;">
+        <div class="accent-line">SatyaOS v3.1 — Kolhapur, India — System Online</div>
+        <h1 class="hero-title glitch" data-text="BUILDING THE HYPERLOCAL FUTURE">
+          BUILDING THE<br/><span class="accent-word">HYPERLOCAL</span><br/>FUTURE
+        </h1>
+        <p style="max-width:560px; font-size:0.85rem; color:var(--muted); margin-top:1.5rem; line-height:1.8;">
+          Founder. Architect. Operator. I build commerce systems that dominate local markets — faster, leaner, and smarter than anything you've seen. No fluff. Pure ROI.
+        </p>
+        <div style="display:flex; gap:1rem; margin-top:2.5rem; flex-wrap:wrap; align-items:center;">
+          <button class="magnetic-btn" onclick="GlobalState.navigate('intake')" id="deploy-btn">
+            <span>⚡</span> DEPLOY STRATEGY
+          </button>
+          <button class="ghost-btn" onclick="GlobalState.navigate('systems')">
+            VIEW SYSTEMS →
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="bento-4" style="margin-bottom:1px;">
+        <div class="stat-box">
+          <div class="stat-value">3</div>
+          <div class="stat-label">Live Products</div>
+          <div class="stat-delta">↑ 2 this year</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">₹2.4Cr</div>
+          <div class="stat-label">GMV Tracked</div>
+          <div class="stat-delta">↑ 340% YoY</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">18</div>
+          <div class="stat-label">Tech Modules</div>
+          <div class="stat-delta">Active stack</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">99.7%</div>
+          <div class="stat-label">Uptime SLA</div>
+          <div class="stat-delta">Zero downtime</div>
+        </div>
+      </div>
+
+      <hr class="section-divider"/>
+
+      <!-- Terminal Row -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1px;" class="terminal-grid">
+        <div class="terminal" style="position:relative; overflow:hidden;">
+          <div class="scan-sweep"></div>
+          <div class="terminal-header">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+            <span style="margin-left:0.5rem; font-size:0.65rem; color:var(--muted); letter-spacing:0.1em;">satya@os:~</span>
+          </div>
+          <div class="terminal-body">
+            <div class="t-line"><span class="t-prompt">satya@os:~$</span><span style="color:var(--muted);"> system --status</span></div>
+            <div class="t-line" style="margin-top:0.25rem;"><span class="t-muted">// IST Time:</span><span class="t-value" id="live-time">&nbsp;loading...</span></div>
+            <div class="t-line"><span class="t-muted">// Location:</span><span class="t-value">&nbsp;Kolhapur, MH, IN</span></div>
+            <div class="t-line"><span class="t-muted">// CPU Load:</span><span class="t-value" id="cpu-load">&nbsp;14%</span></div>
+            <div class="t-line"><span class="t-muted">// CPU State:</span><span class="t-value" id="cpu-state">&nbsp;NOMINAL</span></div>
+            <div class="t-line"><span class="t-muted">// Heartbeat:</span><span id="heartbeat-bar" class="t-value">&nbsp;██████░░░░░░</span></div>
+            <div class="t-line" style="margin-top:0.5rem;"><span class="t-prompt">satya@os:~$</span><span style="color:var(--muted);"> uptime --check</span></div>
+            <div class="t-line"><span class="t-value">&nbsp;99.7% — All systems operational</span></div>
+            <div class="t-line" style="margin-top:0.5rem;"><span class="t-prompt">satya@os:~$</span><span class="cursor-blink"></span></div>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+            <span style="margin-left:0.5rem; font-size:0.65rem; color:var(--muted); letter-spacing:0.1em;">mission::brief</span>
+          </div>
+          <div class="terminal-body">
+            <div class="t-line"><span class="t-muted">// MISSION OBJECTIVE</span></div>
+            <div style="margin-top:0.5rem; font-size:0.78rem; color:var(--text); line-height:1.9;">
+              <div><span class="t-prompt">[01]</span> Dominate hyperlocal commerce in Tier 2/3 India</div>
+              <div><span class="t-prompt">[02]</span> Build systems that print money at scale</div>
+              <div><span class="t-prompt">[03]</span> Zero dependency on VC validation cycles</div>
+              <div><span class="t-prompt">[04]</span> Ship faster than competition can copy</div>
+              <div><span class="t-prompt">[05]</span> Convert every visitor into a revenue event</div>
+            </div>
+            <div style="margin-top:1rem; padding:0.75rem; background:rgba(0,122,255,0.08); border:1px solid rgba(0,122,255,0.2);">
+              <div style="font-size:0.65rem; color:var(--accent); letter-spacing:0.1em; text-transform:uppercase;">Current Focus</div>
+              <div style="font-size:0.8rem; color:var(--text); margin-top:0.3rem;">NearKart Phase 2 → Hyperlocal Delivery Grid Expansion</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================== ARSENAL ============================== -->
+  <section class="section" id="view-arsenal">
+    <div class="container">
+      <div class="accent-line">Power Modules — Active Stack</div>
+      <h2 style="font-family:var(--font-head); font-weight:800; font-size:clamp(2rem,5vw,3.5rem); letter-spacing:-0.03em; margin-bottom:0.75rem;">
+        THE ARSENAL
+      </h2>
+      <p style="font-size:0.78rem; color:var(--muted); max-width:500px; line-height:1.7; margin-bottom:3rem;">
+        Each module battle-tested. Each skill a weapon. This isn't a resume — it's an operational manifest.
+      </p>
+
+      <!-- Core Engine -->
+      <div style="margin-bottom:3rem;">
+        <div class="category-label">// Core Engine</div>
+        <div class="bento-4">
+          <div class="module-card">
+            <div class="module-icon">⚙️</div>
+            <div class="module-name">System Architecture</div>
+            <div class="module-level">CRITICAL — 10Y EXP</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:96%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🔥</div>
+            <div class="module-name">Product Strategy</div>
+            <div class="module-level">CRITICAL — 8Y EXP</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:93%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">⚡</div>
+            <div class="module-name">Full-Stack Dev</div>
+            <div class="module-level">CRITICAL — React/Node</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:90%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🛰️</div>
+            <div class="module-name">API Architecture</div>
+            <div class="module-level">CRITICAL — REST/GQL</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:88%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🗄️</div>
+            <div class="module-name">Database Design</div>
+            <div class="module-level">HIGH — SQL/NoSQL</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:85%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">☁️</div>
+            <div class="module-name">Cloud Ops (AWS)</div>
+            <div class="module-level">HIGH — EC2/Lambda</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:82%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🔐</div>
+            <div class="module-name">Security Layer</div>
+            <div class="module-level">HIGH — Auth/Encrypt</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:80%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">📦</div>
+            <div class="module-name">DevOps / CI-CD</div>
+            <div class="module-level">HIGH — Docker/K8s</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:78%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual Psychology -->
+      <div style="margin-bottom:3rem;">
+        <div class="category-label">// Visual Psychology</div>
+        <div class="bento-4">
+          <div class="module-card">
+            <div class="module-icon">🎨</div>
+            <div class="module-name">UI/UX Design</div>
+            <div class="module-level">CRITICAL — Figma/Framer</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:95%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🧠</div>
+            <div class="module-name">Conversion Design</div>
+            <div class="module-level">CRITICAL — CRO Expert</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:92%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">📱</div>
+            <div class="module-name">Mobile-First</div>
+            <div class="module-level">HIGH — RN / PWA</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:89%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">⚡</div>
+            <div class="module-name">Motion Design</div>
+            <div class="module-level">HIGH — GSAP/Framer</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:83%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Market Logic -->
+      <div style="margin-bottom:3rem;">
+        <div class="category-label">// Market Logic</div>
+        <div class="bento-4">
+          <div class="module-card">
+            <div class="module-icon">📊</div>
+            <div class="module-name">Growth Hacking</div>
+            <div class="module-level">CRITICAL — 0→1 Playbook</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:94%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🎯</div>
+            <div class="module-name">Performance Mktg</div>
+            <div class="module-level">CRITICAL — Meta/Google</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:90%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">📍</div>
+            <div class="module-name">Hyperlocal GTM</div>
+            <div class="module-level">CRITICAL — Tier 2/3</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:97%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">💰</div>
+            <div class="module-name">Revenue Architecture</div>
+            <div class="module-level">HIGH — Monetisation</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:88%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🔬</div>
+            <div class="module-name">Data Analytics</div>
+            <div class="module-level">HIGH — GA4/Mixpanel</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:85%"></div></div>
+          </div>
+          <div class="module-card">
+            <div class="module-icon">🤖</div>
+            <div class="module-name">AI Integration</div>
+            <div class="module-level">HIGH — LLM/ML Ops</div>
+            <div class="module-bar"><div class="module-bar-fill" style="width:82%"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================== SYSTEMS ============================== -->
+  <section class="section" id="view-systems">
+    <div class="container">
+      <div class="accent-line">Active Deployments — Production</div>
+      <h2 style="font-family:var(--font-head); font-weight:800; font-size:clamp(2rem,5vw,3.5rem); letter-spacing:-0.03em; margin-bottom:0.75rem;">
+        SYSTEMS
+      </h2>
+      <p style="font-size:0.78rem; color:var(--muted); max-width:500px; line-height:1.7; margin-bottom:2rem;">
+        Every product is a live war machine. Search the stack.
+      </p>
+
+      <!-- Search -->
+      <div style="position:relative; margin-bottom:2px;">
+        <input class="search-input" id="project-search" placeholder="// search systems..." oninput="filterProjects(this.value)"/>
+        <span style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); font-size:0.7rem; color:var(--muted);">⌕</span>
+      </div>
+      <div style="height:1px;background:var(--border); margin-bottom:2rem;"></div>
+
+      <!-- Projects Grid -->
+      <div id="projects-grid">
+
+        <!-- NearKart -->
+        <div class="project-card" data-tags="ecommerce hyperlocal delivery react nodejs mongodb" style="margin-bottom:1px;">
+          <div class="project-glow"></div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.5rem;">
+            <div style="font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase;">SYS-001</div>
+            <span class="status-badge status-live"><span class="status-dot status-dot-live"></span>LIVE</span>
+          </div>
+          <h3 class="project-title">NearKart</h3>
+          <p class="project-desc">Hyperlocal commerce platform connecting Kolhapur's 10,000+ SMBs to digital-first consumers. 15-min delivery grid, AI-powered inventory, real-time demand forecasting. Processing ₹18L+ GMV monthly with 94% repeat order rate.</p>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1px; margin:1.25rem 0; border:1px solid var(--border);">
+            <div style="padding:0.75rem; border-right:1px solid var(--border);">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">8.2K</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Active Users</div>
+            </div>
+            <div style="padding:0.75rem; border-right:1px solid var(--border);">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">94%</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Retention</div>
+            </div>
+            <div style="padding:0.75rem;">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">15m</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Avg Delivery</div>
+            </div>
+          </div>
+          <div class="project-tags">
+            <span class="tag">React Native</span>
+            <span class="tag">Node.js</span>
+            <span class="tag">MongoDB</span>
+            <span class="tag">Redis</span>
+            <span class="tag">AWS</span>
+            <span class="tag">Hyperlocal</span>
+          </div>
+        </div>
+
+        <!-- Zyloq -->
+        <div class="project-card" data-tags="saas ai posture health wearable" style="margin-bottom:1px;">
+          <div class="project-glow"></div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.5rem;">
+            <div style="font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase;">SYS-002</div>
+            <span class="status-badge status-live"><span class="status-dot status-dot-live"></span>LIVE</span>
+          </div>
+          <h3 class="project-title">Zyloq</h3>
+          <p class="project-desc">B2B SaaS for micro-retailers. Inventory intelligence, supplier management, demand prediction, and GST-ready billing in one terminal. Replaces 4 different software tools. 340+ retailers onboarded in 6 months.</p>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1px; margin:1.25rem 0; border:1px solid var(--border);">
+            <div style="padding:0.75rem; border-right:1px solid var(--border);">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">340+</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Retailers</div>
+            </div>
+            <div style="padding:0.75rem; border-right:1px solid var(--border);">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">₹4.8L</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">MRR</div>
+            </div>
+            <div style="padding:0.75rem;">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">4.8★</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Rating</div>
+            </div>
+          </div>
+          <div class="project-tags">
+            <span class="tag">Vue.js</span>
+            <span class="tag">Python</span>
+            <span class="tag">PostgreSQL</span>
+            <span class="tag">GST API</span>
+            <span class="tag">ML</span>
+            <span class="tag">B2B SaaS</span>
+          </div>
+        </div>
+
+        <!-- Posture AI -->
+        <div class="project-card" data-tags="ai ml computer vision health posture wearable react">
+          <div class="project-glow"></div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.5rem;">
+            <div style="font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase;">SYS-003</div>
+            <span class="status-badge status-deploy"><span class="status-dot status-dot-deploy"></span>DEPLOYING</span>
+          </div>
+          <h3 class="project-title">Posture AI</h3>
+          <p class="project-desc">Real-time posture correction system using computer vision and ML. Processes webcam feed at 30fps to detect 17 skeletal keypoints, scores posture health, and dispatches haptic alerts. Corporate wellness play targeting WFH India.</p>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1px; margin:1.25rem 0; border:1px solid var(--border);">
+            <div style="padding:0.75rem; border-right:1px solid var(--border);">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">30fps</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Processing</div>
+            </div>
+            <div style="padding:0.75rem; border-right:1px solid var(--border);">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">17</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Keypoints</div>
+            </div>
+            <div style="padding:0.75rem;">
+              <div style="font-family:var(--font-head); font-weight:800; font-size:1.4rem; color:var(--text);">Beta</div>
+              <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Stage</div>
+            </div>
+          </div>
+          <div class="project-tags">
+            <span class="tag">TensorFlow.js</span>
+            <span class="tag">MediaPipe</span>
+            <span class="tag">React</span>
+            <span class="tag">WebGL</span>
+            <span class="tag">Computer Vision</span>
+          </div>
+        </div>
+
+      </div>
+      <div id="no-results" style="display:none; padding:3rem; text-align:center; border:1px solid var(--border); color:var(--muted); font-size:0.8rem;">
+        // No systems match query. Try: 'ecommerce', 'ai', 'saas'
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================ INTELLIGENCE ============================ -->
+  <section class="section" id="view-intelligence">
+    <div class="container">
+      <div class="accent-line">Intelligence Feed — Published Thought</div>
+      <h2 style="font-family:var(--font-head); font-weight:800; font-size:clamp(2rem,5vw,3.5rem); letter-spacing:-0.03em; margin-bottom:0.75rem;">
+        INTELLIGENCE
+      </h2>
+      <p style="font-size:0.78rem; color:var(--muted); max-width:500px; line-height:1.7; margin-bottom:3rem;">
+        Unfiltered frameworks. Hard-won lessons. Zero recycled wisdom.
+      </p>
+      <div id="blog-feed" style="display:flex; flex-direction:column; gap:1px;"></div>
+    </div>
+  </section>
+
+  <!-- ============================ INVESTMENT ============================ -->
+  <section class="section" id="view-investment">
+    <div class="container">
+      <div class="accent-line">Engagement Tiers — ROI-First Pricing</div>
+      <h2 style="font-family:var(--font-head); font-weight:800; font-size:clamp(2rem,5vw,3.5rem); letter-spacing:-0.03em; margin-bottom:0.75rem;">
+        INVESTMENT
+      </h2>
+      <p style="font-size:0.78rem; color:var(--muted); max-width:500px; line-height:1.7; margin-bottom:3rem;">
+        You're not paying for hours. You're acquiring outcomes. Every rupee returns a multiple.
+      </p>
+
+      <!-- Pricing Grid -->
+      <div class="bento-3" style="margin-bottom:3rem;">
+
+        <!-- Starter -->
+        <div class="pricing-card">
+          <div class="tier-name">Starter</div>
+          <div class="price-tag"><sup>₹</sup>49K</div>
+          <div class="price-period">/ project — One-time</div>
+          <div class="price-roi">Expected 3–6x ROI within 90 days of launch. Built-in conversion architecture from day one.</div>
+          <hr class="price-divider"/>
+          <ul class="feature-list">
+            <li class="feature-item">Landing page / micro-site build</li>
+            <li class="feature-item">Performance audit (speed, CRO, SEO)</li>
+            <li class="feature-item">GTM strategy document</li>
+            <li class="feature-item">2 revision cycles</li>
+            <li class="feature-item">30-day post-launch support</li>
+          </ul>
+          <button class="ghost-btn" style="width:100%; justify-content:center; margin-top:1.5rem;" onclick="GlobalState.navigate('intake')">
+            INITIATE →
+          </button>
+        </div>
+
+        <!-- Growth (featured) -->
+        <div class="pricing-card featured">
+          <div class="tier-name">Growth</div>
+          <div class="price-tag"><sup>₹</sup>1.2L</div>
+          <div class="price-period">/ month — 3 month minimum</div>
+          <div class="price-roi">Teams on Growth see 8–15x ROI. Full product + marketing system deployed for sustainable scale.</div>
+          <hr class="price-divider"/>
+          <ul class="feature-list">
+            <li class="feature-item">Full-stack product build (MVP to v1)</li>
+            <li class="feature-item">Performance marketing setup & management</li>
+            <li class="feature-item">Conversion rate optimisation</li>
+            <li class="feature-item">Analytics dashboard with KPI tracking</li>
+            <li class="feature-item">Weekly strategy sessions</li>
+            <li class="feature-item">Dedicated Slack channel</li>
+            <li class="feature-item">90-day post-launch support</li>
+          </ul>
+          <button class="magnetic-btn" style="width:100%; justify-content:center; margin-top:1.5rem;" onclick="GlobalState.navigate('intake')">
+            DEPLOY NOW ⚡
+          </button>
+        </div>
+
+        <!-- Elite -->
+        <div class="pricing-card">
+          <div class="tier-name">Elite</div>
+          <div class="price-tag"><sup>₹</sup>3.5L</div>
+          <div class="price-period">/ month — Fractional CTO</div>
+          <div class="price-roi">Reserved for operators serious about building a ₹10Cr+ machine. Seats are limited to 2 per quarter.</div>
+          <hr class="price-divider"/>
+          <ul class="feature-list">
+            <li class="feature-item">Embedded fractional CTO/CPO role</li>
+            <li class="feature-item">Full product roadmap ownership</li>
+            <li class="feature-item">Team hiring & tech stack decisions</li>
+            <li class="feature-item">Investor pitch deck + data room</li>
+            <li class="feature-item">Revenue architecture & monetisation</li>
+            <li class="feature-item">Unlimited builds and iterations</li>
+            <li class="feature-item">Priority 24/7 access</li>
+          </ul>
+          <button class="ghost-btn" style="width:100%; justify-content:center; margin-top:1.5rem;" onclick="GlobalState.navigate('intake')">
+            APPLY →
+          </button>
+        </div>
+
+      </div>
+
+      <hr class="section-divider"/>
+
+      <!-- Strategic ROI Engine -->
+      <div class="accent-line">Strategic ROI Engine</div>
+      <h3 style="font-family:var(--font-head); font-size:1.6rem; font-weight:800; letter-spacing:-0.02em; margin-bottom:0.5rem;">
+        CONVERSION CALCULATOR
+      </h3>
+      <p style="font-size:0.75rem; color:var(--muted); margin-bottom:2rem; line-height:1.7;">
+        Adjust your inputs. See what you're leaving on the table with a sub-optimised funnel.
+      </p>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; margin-bottom:2rem;" class="roi-grid">
+        <!-- Inputs -->
+        <div style="border:1px solid var(--border); padding:1.75rem;">
+          <div style="font-size:0.65rem; color:var(--accent); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:1.5rem;">// Input Parameters</div>
+          <div style="margin-bottom:1.25rem;">
+            <label class="form-label">Monthly Visitors</label>
+            <input type="range" class="roi-slider" id="roi-visitors" min="1000" max="100000" value="10000" step="500" oninput="calcROI()"/>
+            <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted);">
+              <span>1K</span><span id="roi-visitors-val" style="color:var(--accent);">10,000</span><span>100K</span>
+            </div>
+          </div>
+          <div style="margin-bottom:1.25rem;">
+            <label class="form-label">Average Order Value (₹)</label>
+            <input type="range" class="roi-slider" id="roi-aov" min="200" max="10000" value="1200" step="100" oninput="calcROI()"/>
+            <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted);">
+              <span>₹200</span><span id="roi-aov-val" style="color:var(--accent);">₹1,200</span><span>₹10K</span>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">Gross Margin (%)</label>
+            <input type="range" class="roi-slider" id="roi-margin" min="5" max="60" value="22" step="1" oninput="calcROI()"/>
+            <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted);">
+              <span>5%</span><span id="roi-margin-val" style="color:var(--accent);">22%</span><span>60%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Outputs -->
+        <div style="display:flex; flex-direction:column; gap:1px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; flex:1;">
+            <div class="roi-display">
+              <div style="font-size:0.6rem; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">AT 2% CONVERSION</div>
+              <div class="roi-number" id="roi-2pct-rev" style="color:var(--muted);">₹2.4L</div>
+              <div class="roi-label">Monthly Revenue</div>
+              <div style="margin-top:0.5rem; font-size:0.65rem; color:var(--muted);" id="roi-2pct-profit">₹52K profit</div>
+            </div>
+            <div class="roi-display" style="border-left:none;">
+              <div style="font-size:0.6rem; color:var(--green); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">AT 5% CONVERSION</div>
+              <div class="roi-number" id="roi-5pct-rev">₹6.0L</div>
+              <div class="roi-label">Monthly Revenue</div>
+              <div style="margin-top:0.5rem; font-size:0.65rem; color:var(--green);" id="roi-5pct-profit">₹1.32L profit</div>
+            </div>
+          </div>
+          <div class="roi-display" style="border-top:none; padding:1.25rem; background:rgba(0,122,255,0.06); border:1px solid rgba(0,122,255,0.3);">
+            <div style="font-size:0.6rem; color:var(--accent); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.3rem;">ANNUAL DELTA — OPTIMISED VS BASELINE</div>
+            <div style="font-family:var(--font-head); font-weight:800; font-size:1.8rem; color:var(--accent); letter-spacing:-0.02em;" id="roi-delta">+₹43.2L/yr</div>
+            <div style="font-size:0.7rem; color:var(--muted); margin-top:0.25rem;">That's the cost of a bad funnel. Fix it.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =============================== INTAKE =============================== -->
+  <section class="section" id="view-intake">
+    <div class="container" style="max-width:720px;">
+      <div class="accent-line">Intake Protocol — SatyaOS Cloud</div>
+      <h2 style="font-family:var(--font-head); font-weight:800; font-size:clamp(2rem,5vw,3.5rem); letter-spacing:-0.03em; margin-bottom:0.75rem;">
+        INTAKE
+      </h2>
+      <p style="font-size:0.78rem; color:var(--muted); max-width:500px; line-height:1.7; margin-bottom:2.5rem;">
+        Only serious operators. Data encrypted and uplinked to SatyaOS Cloud. Response in &lt;24 hours.
+      </p>
+
+      <!-- Step Indicator -->
+      <div class="form-step-indicator" id="step-indicator">
+        <div class="step-dot active" id="step-dot-1"></div>
+        <div style="width:12px;"></div>
+        <div class="step-dot" id="step-dot-2"></div>
+        <div style="width:12px;"></div>
+        <div class="step-dot" id="step-dot-3"></div>
+      </div>
+      <div style="font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; margin-bottom:2rem;" id="step-label">STEP 1 OF 3 — IDENTITY</div>
+
+      <!-- Form Steps -->
+      <div id="form-step-1">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; margin-bottom:1px;">
+          <div style="padding:1px;">
+            <label class="form-label">Full Name *</label>
+            <input class="form-input" id="f-name" placeholder="Your name" autocomplete="name"/>
+            <div class="form-error" id="err-name"></div>
+          </div>
+          <div style="padding:1px;">
+            <label class="form-label">Email *</label>
+            <input class="form-input" id="f-email" placeholder="you@company.com" type="email"/>
+            <div class="form-error" id="err-email"></div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;">
+          <label class="form-label">Company / Startup Name</label>
+          <input class="form-input" id="f-company" placeholder="What are you building?"/>
+        </div>
+        <div style="margin-top:1rem;">
+          <label class="form-label">City / Location *</label>
+          <input class="form-input" id="f-city" placeholder="Kolhapur, Mumbai..." value="Kolhapur"/>
+          <div class="form-error" id="err-city"></div>
+        </div>
+        <button class="magnetic-btn" style="margin-top:2rem;" onclick="nextStep(1)">
+          NEXT: PROJECT BRIEF →
+        </button>
+      </div>
+
+      <div id="form-step-2" style="display:none;">
+        <div style="margin-bottom:1rem;">
+          <label class="form-label">Engagement Tier *</label>
+          <select class="form-select" id="f-tier">
+            <option value="">// Select tier</option>
+            <option value="starter">Starter — ₹49K</option>
+            <option value="growth">Growth — ₹1.2L/mo</option>
+            <option value="elite">Elite — ₹3.5L/mo</option>
+          </select>
+          <div class="form-error" id="err-tier"></div>
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label class="form-label">Project Brief *</label>
+          <textarea class="form-textarea" id="f-brief" placeholder="What are you building? What problem does it solve? What's the scale?"></textarea>
+          <div class="form-error" id="err-brief"></div>
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label class="form-label">Timeline</label>
+          <select class="form-select" id="f-timeline">
+            <option value="">// How fast do you need to move?</option>
+            <option value="asap">ASAP — This week</option>
+            <option value="2w">Within 2 weeks</option>
+            <option value="1m">Within 1 month</option>
+            <option value="flexible">Flexible</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <button class="ghost-btn" onclick="prevStep(2)">← BACK</button>
+          <button class="magnetic-btn" onclick="nextStep(2)">NEXT: FINAL CHECK →</button>
+        </div>
+      </div>
+
+      <div id="form-step-3" style="display:none;">
+        <div id="form-summary" style="border:1px solid var(--border); padding:1.5rem; margin-bottom:1.5rem; background:rgba(0,0,0,0.4);">
+          <div style="font-size:0.65rem; color:var(--accent); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:1rem;">// UPLINK PREVIEW</div>
+          <div id="summary-content" style="font-size:0.78rem; line-height:2;"></div>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+          <label class="form-label">Anything else? (optional)</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="URLs, references, budget constraints..."></textarea>
+        </div>
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <button class="ghost-btn" onclick="prevStep(3)">← BACK</button>
+          <button class="magnetic-btn" id="uplink-btn" onclick="submitIntake()">
+            <span>⚡</span> UPLINK TO SATYAOS CLOUD
+          </button>
+        </div>
+      </div>
+
+      <!-- Success State -->
+      <div class="uplink-status" id="uplink-success">
+        <div style="font-size:2rem; margin-bottom:1rem;">✅</div>
+        <div style="font-family:var(--font-head); font-size:1.5rem; font-weight:800; margin-bottom:0.5rem;">UPLINK COMPLETE</div>
+        <div style="font-size:0.75rem; color:var(--muted); margin-bottom:1rem; line-height:1.7;">
+          Your intake has been transmitted to SatyaOS Cloud.<br/>Expect a response within 24 hours.
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.65rem; color:var(--green); border:1px solid rgba(0,255,136,0.3); padding:0.75rem; display:inline-block;" id="uplink-ref"></div>
+        <div style="margin-top:1.5rem;">
+          <button class="ghost-btn" onclick="GlobalState.navigate('home')">← RETURN TO BASE</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div><!-- end #app -->
+
+<script>
+// ========================================================================
+// GLOBAL STATE — Single-file SPA Router
+// ========================================================================
+const GlobalState = {
+  current: 'home',
+  history: [],
+
+  navigate(view) {
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(s => s.classList.remove('active'));
+    const target = document.getElementById('view-' + view);
+    if (target) {
+      target.classList.add('active');
+      this.current = view;
+      this.history.push(view);
+      this.updateNav(view);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (view === 'intelligence') renderBlogs();
+      if (view === 'investment') calcROI();
+    }
+  },
+
+  updateNav(view) {
+    document.querySelectorAll('.nav-link').forEach(l => {
+      l.classList.toggle('active', l.dataset.view === view);
+    });
+  },
+
+  openCmd() {
+    document.getElementById('cmd-overlay').classList.add('open');
+    document.getElementById('cmd-input').focus();
+    renderCmdResults('');
+  },
+
+  closeCmd() {
+    document.getElementById('cmd-overlay').classList.remove('open');
+    document.getElementById('cmd-input').value = '';
+    cmdFocusIndex = -1;
+  }
+};
+
+// ========================================================================
+// NAVBAR VANISH ON SCROLL
+// ========================================================================
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+  const cur = window.scrollY;
+  const navbar = document.getElementById('navbar');
+  if (cur > lastScroll && cur > 80) {
+    navbar.classList.add('hidden');
+  } else {
+    navbar.classList.remove('hidden');
+  }
+  lastScroll = cur;
+});
+
+// ========================================================================
+// MOBILE MENU
+// ========================================================================
+function toggleMobileMenu() {
+  document.getElementById('mobile-menu').classList.toggle('open');
+}
+function closeMobileMenu() {
+  document.getElementById('mobile-menu').classList.remove('open');
+}
+
+// ========================================================================
+// LIVE IST TIME + CPU HEARTBEAT (Kolhapur = IST = UTC+5:30)
+// ========================================================================
+function getIST() {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const ist = new Date(utc + 5.5 * 3600000);
+  const hh = String(ist.getHours()).padStart(2, '0');
+  const mm = String(ist.getMinutes()).padStart(2, '0');
+  const ss = String(ist.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss} IST`;
+}
+
+let cpuTarget = 14;
+let cpuCurrent = 14;
+
+function updateTerminal() {
+  // Time
+  const timeEl = document.getElementById('live-time');
+  if (timeEl) timeEl.textContent = ' ' + getIST();
+
+  // CPU fluctuation 12–18%
+  if (Math.random() < 0.15) cpuTarget = Math.floor(Math.random() * 7) + 12;
+  cpuCurrent += (cpuTarget - cpuCurrent) * 0.2;
+  const cpuVal = Math.round(cpuCurrent);
+
+  const cpuEl = document.getElementById('cpu-load');
+  const stateEl = document.getElementById('cpu-state');
+  const hbEl = document.getElementById('heartbeat-bar');
+
+  if (cpuEl) cpuEl.textContent = ' ' + cpuVal + '%';
+  if (stateEl) {
+    if (cpuVal < 15) stateEl.textContent = ' NOMINAL';
+    else if (cpuVal < 17) stateEl.textContent = ' ELEVATED';
+    else stateEl.textContent = ' HIGH';
+  }
+
+  if (hbEl) {
+    const filled = Math.round((cpuVal / 20) * 8);
+    const empty = 12 - filled;
+    hbEl.textContent = ' ' + '█'.repeat(Math.min(filled, 12)) + '░'.repeat(Math.max(empty, 0));
+  }
+}
+
+setInterval(updateTerminal, 1000);
+updateTerminal();
+
+// ========================================================================
+// MAGNETIC BUTTON — Mouse parallax
+// ========================================================================
+const deployBtn = document.getElementById('deploy-btn');
+if (deployBtn) {
+  deployBtn.addEventListener('mousemove', (e) => {
+    const rect = deployBtn.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    deployBtn.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px) scale(1.03)`;
+  });
+  deployBtn.addEventListener('mouseleave', () => {
+    deployBtn.style.transform = '';
+  });
+}
+
+// ========================================================================
+// BLOG DATA
+// ========================================================================
+const BLOGS = [
+  {
+    id: 1,
+    tag: 'STRATEGY',
+    title: 'The Hyperlocal Advantage: Why Tier 2 India Is the Last Untouched Frontier',
+    excerpt: 'While everyone piles into metro markets with 8 competitors and 40% CAC, the real opportunity is in markets where you can own distribution, build trust networks, and achieve 60% gross margins. This is how you print money in plain sight.',
+    readTime: '7 min read',
+    impact: 'IMPACT: 9.4/10',
+    date: 'Mar 2025'
+  },
+  {
+    id: 2,
+    tag: 'PRODUCT',
+    title: 'Kill Features, Not Users: The 80/20 Product Framework for Zero-Budget Startups',
+    excerpt: 'Most founders build 20 features users mildly like instead of 4 features they cannot live without. The constraint of zero budget is a feature, not a bug — it forces you to find the one thing that actually moves conversion.',
+    readTime: '5 min read',
+    impact: 'IMPACT: 9.1/10',
+    date: 'Feb 2025'
+  },
+  {
+    id: 3,
+    tag: 'CONVERSION',
+    title: 'From 2% to 5%: The Systematic Conversion Playbook for E-Commerce Operators',
+    excerpt: 'Going from 2% to 5% conversion on 10,000 visitors is ₹43L+ in additional annual revenue. This is the exact funnel audit checklist, UX principles, and psychological triggers I use on every product I build.',
+    readTime: '9 min read',
+    impact: 'IMPACT: 9.8/10',
+    date: 'Jan 2025'
+  },
+  {
+    id: 4,
+    tag: 'GROWTH',
+    title: 'Supply-Side Moats: Building Distribution That Competitors Cannot Buy',
+    excerpt: 'Revenue is downstream of distribution. The founders who win are the ones who control supply-side relationships in a market before demand spikes. This is the playbook for locking in supplier networks before your competitors even arrive.',
+    readTime: '6 min read',
+    impact: 'IMPACT: 8.9/10',
+    date: 'Dec 2024'
+  },
+  {
+    id: 5,
+    tag: 'TECHNOLOGY',
+    title: 'The $0 Tech Stack: How I Built and Scaled 3 Products Without a Single Cloud Bill',
+    excerpt: 'DigitalOcean + Cloudflare + Supabase free tier + Vercel hobby. You can run a ₹50L/yr business on a monthly infra bill under ₹2,000. This is the exact stack, the architecture, and the moment you should actually start paying.',
+    readTime: '8 min read',
+    impact: 'IMPACT: 9.2/10',
+    date: 'Nov 2024'
+  },
+  {
+    id: 6,
+    tag: 'MINDSET',
+    title: 'Build or Die: The Only Mental Model You Need as a First-Time Founder in India',
+    excerpt: 'No accelerator. No angel network. No IIT pedigree. The only thing that separates you from the exit you want is the decision to ship before you\'re ready. Here\'s the framework for operating with urgency when everything is working against you.',
+    readTime: '4 min read',
+    impact: 'IMPACT: 9.6/10',
+    date: 'Oct 2024'
+  }
+];
+
+function renderBlogs() {
+  const feed = document.getElementById('blog-feed');
+  if (!feed || feed.dataset.rendered) return;
+  feed.dataset.rendered = 'true';
+
+  BLOGS.forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'blog-card';
+    el.innerHTML = `
+      <div class="blog-meta">
+        <span class="blog-tag">${b.tag}</span>
+        <span class="blog-read-time">${b.readTime}</span>
+        <span class="impact-score">${b.impact}</span>
+        <span style="font-size:0.62rem; color:var(--muted); margin-left:auto;">${b.date}</span>
+      </div>
+      <h3 class="blog-title">${b.title}</h3>
+      <p class="blog-excerpt">${b.excerpt}</p>
+      <span class="blog-cta">READ FULL ARTICLE →</span>
+    `;
+    feed.appendChild(el);
+  });
+}
+
+// ========================================================================
+// PROJECT SEARCH
+// ========================================================================
+function filterProjects(query) {
+  const q = query.toLowerCase().trim();
+  const cards = document.querySelectorAll('#projects-grid .project-card');
+  let visible = 0;
+
+  cards.forEach(c => {
+    const tags = c.dataset.tags || '';
+    const title = c.querySelector('.project-title')?.textContent?.toLowerCase() || '';
+    const desc = c.querySelector('.project-desc')?.textContent?.toLowerCase() || '';
+    const match = !q || tags.includes(q) || title.includes(q) || desc.includes(q);
+    c.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+
+  document.getElementById('no-results').style.display = visible === 0 ? 'block' : 'none';
+}
+
+// ========================================================================
+// ROI CALCULATOR
+// ========================================================================
+function calcROI() {
+  const visitors = parseInt(document.getElementById('roi-visitors').value) || 10000;
+  const aov = parseInt(document.getElementById('roi-aov').value) || 1200;
+  const margin = parseInt(document.getElementById('roi-margin').value) / 100 || 0.22;
+
+  document.getElementById('roi-visitors-val').textContent = visitors.toLocaleString('en-IN');
+  document.getElementById('roi-aov-val').textContent = '₹' + aov.toLocaleString('en-IN');
+  document.getElementById('roi-margin-val').textContent = Math.round(margin * 100) + '%';
+
+  const rev2 = visitors * 0.02 * aov;
+  const rev5 = visitors * 0.05 * aov;
+  const profit2 = rev2 * margin;
+  const profit5 = rev5 * margin;
+  const delta = (profit5 - profit2) * 12;
+
+  document.getElementById('roi-2pct-rev').textContent = '₹' + formatLakh(rev2);
+  document.getElementById('roi-2pct-profit').textContent = '₹' + formatLakh(profit2) + ' profit';
+  document.getElementById('roi-5pct-rev').textContent = '₹' + formatLakh(rev5);
+  document.getElementById('roi-5pct-profit').textContent = '₹' + formatLakh(profit5) + ' profit';
+  document.getElementById('roi-delta').textContent = '+₹' + formatLakh(delta) + '/yr';
+}
+
+function formatLakh(n) {
+  if (n >= 10000000) return (n / 10000000).toFixed(1) + 'Cr';
+  if (n >= 100000) return (n / 100000).toFixed(1) + 'L';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return Math.round(n).toLocaleString('en-IN');
+}
+
+// ========================================================================
+// MULTI-STEP FORM
+// ========================================================================
+let currentStep = 1;
+
+function nextStep(step) {
+  if (step === 1) {
+    const name = document.getElementById('f-name').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    const city = document.getElementById('f-city').value.trim();
+    let valid = true;
+
+    if (!name) { document.getElementById('err-name').textContent = '// Name required'; valid = false; }
+    else document.getElementById('err-name').textContent = '';
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('err-email').textContent = '// Valid email required'; valid = false;
+    } else document.getElementById('err-email').textContent = '';
+
+    if (!city) { document.getElementById('err-city').textContent = '// City required'; valid = false; }
+    else document.getElementById('err-city').textContent = '';
+
+    if (!valid) return;
+  }
+
+  if (step === 2) {
+    const tier = document.getElementById('f-tier').value;
+    const brief = document.getElementById('f-brief').value.trim();
+    let valid = true;
+
+    if (!tier) { document.getElementById('err-tier').textContent = '// Select a tier'; valid = false; }
+    else document.getElementById('err-tier').textContent = '';
+
+    if (brief.length < 20) { document.getElementById('err-brief').textContent = '// Brief too short — minimum 20 characters'; valid = false; }
+    else document.getElementById('err-brief').textContent = '';
+
+    if (!valid) return;
+
+    // Populate summary
+    const tierLabels = { starter: 'Starter — ₹49K', growth: 'Growth — ₹1.2L/mo', elite: 'Elite — ₹3.5L/mo' };
+    document.getElementById('summary-content').innerHTML = `
+      <div><span style="color:var(--muted);">NAME:</span> <span style="color:var(--text);">${document.getElementById('f-name').value}</span></div>
+      <div><span style="color:var(--muted);">EMAIL:</span> <span style="color:var(--text);">${document.getElementById('f-email').value}</span></div>
+      <div><span style="color:var(--muted);">COMPANY:</span> <span style="color:var(--text);">${document.getElementById('f-company').value || 'N/A'}</span></div>
+      <div><span style="color:var(--muted);">CITY:</span> <span style="color:var(--text);">${document.getElementById('f-city').value}</span></div>
+      <div><span style="color:var(--muted);">TIER:</span> <span style="color:var(--accent);">${tierLabels[tier]}</span></div>
+      <div><span style="color:var(--muted);">BRIEF:</span> <span style="color:var(--text);">${brief.substring(0, 100)}${brief.length > 100 ? '...' : ''}</span></div>
+    `;
+  }
+
+  showStep(step + 1);
+}
+
+function prevStep(step) {
+  showStep(step - 1);
+}
+
+function showStep(n) {
+  currentStep = n;
+  [1, 2, 3].forEach(i => {
+    document.getElementById('form-step-' + i).style.display = i === n ? 'block' : 'none';
+    const dot = document.getElementById('step-dot-' + i);
+    if (dot) dot.classList.toggle('active', i <= n);
+  });
+  const labels = { 1: 'STEP 1 OF 3 — IDENTITY', 2: 'STEP 2 OF 3 — PROJECT BRIEF', 3: 'STEP 3 OF 3 — CONFIRM & UPLINK' };
+  document.getElementById('step-label').textContent = labels[n];
+}
+
+function submitIntake() {
+  const btn = document.getElementById('uplink-btn');
+  btn.textContent = '⚡ UPLINKING...';
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+
+  // Simulate uplink
+  setTimeout(() => {
+    const ref = 'SOS-' + Date.now().toString(36).toUpperCase();
+    document.getElementById('form-step-3').style.display = 'none';
+    document.getElementById('step-indicator').style.display = 'none';
+    document.getElementById('step-label').style.display = 'none';
+    const success = document.getElementById('uplink-success');
+    success.classList.add('visible');
+    document.getElementById('uplink-ref').textContent = '// UPLINK REF: ' + ref + ' — SatyaOS Cloud v3.1';
+  }, 2200);
+}
+
+// ========================================================================
+// COMMAND PALETTE
+// ========================================================================
+const CMD_ITEMS = [
+  { label: 'Home', icon: '⌂', view: 'home', shortcut: 'G H' },
+  { label: 'Arsenal — Skills', icon: '⚡', view: 'arsenal', shortcut: 'G A' },
+  { label: 'Systems — Projects', icon: '🛰️', view: 'systems', shortcut: 'G S' },
+  { label: 'Intelligence — Blog', icon: '📡', view: 'intelligence', shortcut: 'G I' },
+  { label: 'Investment — Pricing', icon: '💰', view: 'investment', shortcut: 'G P' },
+  { label: 'Intake — Contact', icon: '📥', view: 'intake', shortcut: 'G C' },
+];
+
+let cmdFocusIndex = -1;
+
+function renderCmdResults(query) {
+  const q = query.toLowerCase();
+  const filtered = CMD_ITEMS.filter(i =>
+    !q || i.label.toLowerCase().includes(q) || i.view.includes(q)
+  );
+  const container = document.getElementById('cmd-results');
+  container.innerHTML = '';
+  cmdFocusIndex = -1;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="padding:1rem 1.2rem; font-size:0.75rem; color:var(--muted);">// No results</div>';
+    return;
+  }
+
+  filtered.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'cmd-item';
+    el.dataset.view = item.view;
+    el.innerHTML = `
+      <span class="cmd-item-icon">${item.icon}</span>
+      <span>${item.label}</span>
+      <span class="cmd-item-shortcut">${item.shortcut}</span>
+    `;
+    el.addEventListener('click', () => {
+      GlobalState.navigate(item.view);
+      GlobalState.closeCmd();
+    });
+    container.appendChild(el);
+  });
+}
+
+document.getElementById('cmd-input').addEventListener('input', e => {
+  renderCmdResults(e.target.value);
+});
+
+document.getElementById('cmd-input').addEventListener('keydown', e => {
+  const items = document.querySelectorAll('#cmd-results .cmd-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    cmdFocusIndex = Math.min(cmdFocusIndex + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('focused', i === cmdFocusIndex));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    cmdFocusIndex = Math.max(cmdFocusIndex - 1, 0);
+    items.forEach((it, i) => it.classList.toggle('focused', i === cmdFocusIndex));
+  } else if (e.key === 'Enter' && cmdFocusIndex >= 0) {
+    const focused = items[cmdFocusIndex];
+    if (focused) {
+      GlobalState.navigate(focused.dataset.view);
+      GlobalState.closeCmd();
+    }
+  } else if (e.key === 'Escape') {
+    GlobalState.closeCmd();
+  }
+});
+
+document.getElementById('cmd-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('cmd-overlay')) GlobalState.closeCmd();
+});
+
+// Global keyboard shortcut
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    GlobalState.openCmd();
+  }
+  if (e.key === 'Escape') GlobalState.closeCmd();
+});
+
+// ========================================================================
+// INIT
+// ========================================================================
+GlobalState.updateNav('home');
+calcROI();
+
+// Responsive terminal grid
+function adjustTerminalGrid() {
+  const grid = document.querySelector('.terminal-grid');
+  if (grid) grid.style.gridTemplateColumns = window.innerWidth < 640 ? '1fr' : '1fr 1fr';
+  const roiGrid = document.querySelector('.roi-grid');
+  if (roiGrid) roiGrid.style.gridTemplateColumns = window.innerWidth < 640 ? '1fr' : '1fr 1fr';
+}
+adjustTerminalGrid();
+window.addEventListener('resize', adjustTerminalGrid);
+
+console.log('%cSatyaOS v3.1 — ONLINE', 'color:#007AFF; font-family:monospace; font-size:14px; font-weight:bold;');
+console.log('%cKolhapur, India — Build or Die', 'color:#00FF88; font-family:monospace; font-size:11px;');
+</script>
+</body>
+</html>
